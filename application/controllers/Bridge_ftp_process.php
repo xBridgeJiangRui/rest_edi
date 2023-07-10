@@ -9,36 +9,43 @@ class Bridge_ftp_process extends REST_Controller{
         parent::__construct();
         $this->load->library('session');
         $this->load->helper('url');
-        $this->database = 'b2b_account';
+        $this->load->database();
 
         ini_set('memory_limit', '-1');
         ini_set('max_execution_time', 0);
     }
 
-    //po sftp
-    public function testing_ftp_bridge_post()
+    public function test_api_get()
     {
-        $customer_guid = $this->input->post('customer_guid');
-        $supplier_guid = $this->input->post('supplier_guid');
+        //$get_data = $this->db->query("SELECT * FROM lite_b2b.acc limit 1")->result_array();
+
+        print_r(phpinfo()); die;
+    }
+
+    //po sftp
+    public function ftp_bridge_post()
+    {
         $sftp_host = $this->input->post('sftp_host');
         $sftp_port = $this->input->post('sftp_port');
         $sftp_username = $this->input->post('sftp_username');
         $sftp_password = $this->input->post('sftp_password');
-        $sftp_remote_path = $this->input->post('sftp_remote_path');
-        $local_file_path = $this->input->post('local_file_path') . 'new/' . $supplier_guid . '/'; // to location;
-        $from_destination = $this->input->post('from_destination');
+        // $sftp_remote_path = $this->input->post('sftp_remote_path');
+        $local_file_path = $this->input->post('local_file_path'); // to location;
+        // $from_destination = $this->input->post('from_destination');
         $to_destination = $this->input->post('to_destination');
 
         // check connection to client host
         $connection = ssh2_connect($sftp_host, intval($sftp_port));
-        // print_r($host); echo "\n\n";
-        // print_r($port);  echo "\n\n";
-        // print_r($username);  echo "\n\n";
-        // print_r($password);  echo "\n\n";
+        // print_r($sftp_host); echo "\n\n";
+        // print_r($sftp_port);  echo "\n\n";
+        // print_r($sftp_username);  echo "\n\n";
+        // print_r($sftp_password);  echo "\n\n";
+        // print_r($sftp_remote_path);  echo "\n\n";
         // print_r($local_file_path);  echo "\n\n";
-        // print_r($remote_file_path);  echo "\n\n";
+        // print_r($from_destination);  echo "\n\n";
+        // print_r($to_destination);  echo "\n\n";
         // die;
-        // print_r($connection); die;
+        //print_r($connection); die;
         if ($connection === FALSE) {
 
             $result = array('status' => 'FAIL', 'message' => 'Fail connect client Host',);
@@ -86,7 +93,7 @@ class Bridge_ftp_process extends REST_Controller{
     }
 
     //invoice sftp
-    public function testing_ftp_inv_bridge_post()
+    public function ftp_inv_bridge_post()
     {
         $status = '';
         $message = '';
@@ -98,7 +105,7 @@ class Bridge_ftp_process extends REST_Controller{
         $sftp_password = $this->input->post('sftp_password');
         $from_destination = $this->input->post('sftp_remote_path'); // from location
         $final_to_destination = $this->input->post('local_file_path'); // to location;
-        $to_destination = '/var/www/html/rest_b2b/uploads/GR/new/' . $supplier_guid . '/';
+        $to_destination = '/var/www/html/rest_edi/uploads/GR/new/' . $supplier_guid . '/';
         // print_r($sftp_host); die;
         // print_r(phpinfo()); die;
         $connection = ssh2_connect($sftp_host, intval($sftp_port));
@@ -179,7 +186,7 @@ class Bridge_ftp_process extends REST_Controller{
             );
         }
 
-        // print_r($array_filename); die;
+        //print_r($array_filename); die;
 
         $data_inv_ftp = array();
         foreach ($array_filename as $row)
@@ -199,14 +206,14 @@ class Bridge_ftp_process extends REST_Controller{
 
             if(!$remote = @fopen($remotePath,"r")){
 
-                $update_log1 = $this->db->query("UPDATE lite_b2b.edi_filename_log SET `status` = '99', `message` = 'Unable to open remote file' WHERE a.customer_guid = '$customer_guid' AND a.supplier_guid = '$supplier_guid' AND a.guid = '$file_guid' ");
+                $update_log1 = $this->db->query("UPDATE lite_b2b.edi_filename_log SET `status` = '99', `message` = 'Unable to open remote file' WHERE customer_guid = '$customer_guid' AND supplier_guid = '$supplier_guid' AND guid = '$file_guid' ");
 
                 continue;
             }
             
             if(!$local = @fopen($localPath, "w")){
 
-                $update_log2 = $this->db->query("UPDATE lite_b2b.edi_filename_log SET `status` = '99', `message` = 'Unable to create local file' WHERE a.customer_guid = '$customer_guid' AND a.supplier_guid = '$supplier_guid' AND a.guid = '$file_guid' ");
+                $update_log2 = $this->db->query("UPDATE lite_b2b.edi_filename_log SET `status` = '99', `message` = 'Unable to create local file' WHERE customer_guid = '$customer_guid' AND supplier_guid = '$supplier_guid' AND guid = '$file_guid' ");
 
                 continue;
             }
@@ -235,11 +242,11 @@ class Bridge_ftp_process extends REST_Controller{
             fclose($local);
             fclose($remote);
 
-            // print_r($status); die;
+            //print_r($status); die;
 
             if($status === 'true') 
             {
-                $to_shoot_url = 'http://52.163.112.202/rest_b2b/index.php/Api_jr/retrieve_ftp_invoice';
+                $to_shoot_back_url = 'http://10.10.0.100/rest_b2b/index.php/Edi/retrieve_ftp_invoice';
 
                 $data_inv_ftp = array(
                     'local_file_path' => $remotePath,
@@ -249,12 +256,12 @@ class Bridge_ftp_process extends REST_Controller{
                     "file" => new CURLFile($localPath), // from_destination
                 );
 
-                // print_r($data_inv_ftp); die;
+                //print_r($data_inv_ftp); die;
 
                 $cuser_name = 'ADMIN';
                 $cuser_pass = '1234';
 
-                $ch = curl_init($to_shoot_url);
+                $ch = curl_init($to_shoot_back_url);
                 // curl_setopt($ch, CURLOPT_HTTPHEADER, array("X-API-KEY: " . "CODEX1234" ));
                 curl_setopt($ch, CURLOPT_TIMEOUT, 0);
                 curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
@@ -268,7 +275,7 @@ class Bridge_ftp_process extends REST_Controller{
                 $output = json_decode($result);
                 // $status = json_encode($output);
                 // print_r($output->result);die;
-                // echo $result;die;
+                //echo $result;die;
                 curl_close($ch);
 
                 if(isset($output->status))
