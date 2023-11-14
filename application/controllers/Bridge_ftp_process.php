@@ -33,6 +33,7 @@ class Bridge_ftp_process extends REST_Controller{
         $local_file_path = $this->input->post('local_file_path'); // to location;
         // $from_destination = $this->input->post('from_destination');
         $to_destination = $this->input->post('to_destination');
+        $sftp_step = $this->input->post('sftp_step');
 
         // check connection to client host
         $connection = ssh2_connect($sftp_host, intval($sftp_port));
@@ -61,20 +62,54 @@ class Bridge_ftp_process extends REST_Controller{
                 // Retrieve the file sent via cURL
                 if ($_FILES['file']['error'] === UPLOAD_ERR_OK) 
                 {
-                    $fileContent = file_get_contents($_FILES['file']['tmp_name']);
+                    if($sftp_step == '0')
+                    {
+                        $fileContent = file_get_contents($_FILES['file']['tmp_name']);
 
-                    // send file to client
-                    $send = ssh2_scp_send($connection, $_FILES['file']['tmp_name'], $to_destination,   0644);
-                    // $send = ssh2_scp_send($connection, $local_file_path, str_replace(' ', '', $remote_file),   0644);
-
-                    if ($send === FALSE) {
-
-                        $result = array('status' => 'FAIL', 'message' => 'Fail send file to client',);
-                    } else {
-
-                        $result = array('status' => 'SUCCESS', 'message' => 'SUCCESS send file to client',);
+                        // send file to clients
+                        $send = ssh2_scp_send($connection, $_FILES['file']['tmp_name'], $to_destination,   0644);
+                        // $send = ssh2_scp_send($connection, $local_file_path, str_replace(' ', '', $remote_file),   0644);
+    
+                        if ($send === FALSE) {
+    
+                            $result = array('status' => 'FAIL', 'message' => 'Fail send file to client',);
+                        } else {
+    
+                            $result = array('status' => 'SUCCESS', 'message' => 'SUCCESS send file to client',);
+                        }
                     }
-                    
+                    else
+                    {
+                        // Create SFTP session
+                        $sftp = ssh2_sftp($connection);
+                        
+                        $sftpStream = fopen('ssh2.sftp://'.$sftp.$to_destination, 'w');
+
+                        $response = array('status' => 'SUCCESS', 'message' => 'SUCCESS send file to client',);
+                        
+                        try {
+                            if (!$sftpStream) {
+                                $response = array('status' => 'FAIL', 'message' => 'Could not open remote file',);
+                            }
+                        
+                            $data_to_send = file_get_contents($_FILES['file']['tmp_name']);
+                        
+                            if ($data_to_send === false) {
+                                $response = array('status' => 'FAIL', 'message' => 'Could not open local file',);
+                            }
+                        
+                            if (fwrite($sftpStream, $data_to_send) === false) {
+                                $response = array('status' => 'FAIL', 'message' => 'Could not send data from file',);
+                            }
+                        
+                            fclose($sftpStream);
+                        
+                        } catch (Exception $e) {
+                            $response = array('status' => 'FAIL', 'message' => 'Fail send file to client',);
+
+                            fclose($sftpStream);
+                        }
+                    }
                 } 
                 else 
                 {
